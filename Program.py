@@ -2,8 +2,12 @@ import os;
 import json;
 import op_json;
 import keras;
+from keras import backend as K;
 import numpy as np;
-
+from make_dictionary import makedictionary;
+from op_weight_array import getchordvector;
+from op_weight_array import getcosinesimilarity;
+import pandas as pd;
 
 ######################################################################################################################
 #/makedatasetで得られたコード進行のデータセット
@@ -11,10 +15,12 @@ import numpy as np;
 #/*/teachData/
 #/*/trainData/
 #/*/vocabulary.json
-#を用いて和音としてのベクトルを作成する
+#に対してskip-gramを用いて和音としてのベクトルを作成する
 ######################################################################################################################
 #ここに読込先フォルダの設定（dataset内のフォルダ名を変数に代入すること！）
 foldername = "test1"
+#ここに出力ファイル名
+filename = "test1"
 ######################################################################################################################
 
 #datasetの読み込み
@@ -57,13 +63,39 @@ output2 = keras.layers.Dense(len(vocabulary), activation='softmax')(x)
 output3 = keras.layers.Dense(len(vocabulary), activation='softmax')(x)
 output4 = keras.layers.Dense(len(vocabulary), activation='softmax')(x)
 
+#カスタムメトリクスの定義
+
+
 #モデルを定義
 model = keras.Model(inputs = inputs, outputs = [output1, output2, output3, output4])
 
 #損失関数の定義
-model.compile(optimizer="rmsprop", loss=['categorical_crossentropy', 'categorical_crossentropy', 'categorical_crossentropy', 'categorical_crossentropy'], loss_weights=[0.2, 0.3, 0.3, 0.2])
+model.compile(optimizer="rmsprop", loss=['categorical_crossentropy', 'categorical_crossentropy', 'categorical_crossentropy', 'categorical_crossentropy'], loss_weights=[0.2, 0.3, 0.3, 0.2], metrics = ['accuracy', 'accuracy', 'accuracy', 'accuracy'])
 
 #学習
-model.fit(train_data, [teach_data1, teach_data2, teach_data3, teach_data4], epochs = 10, batch_size = 128)
+model.fit(train_data, [teach_data1, teach_data2, teach_data3, teach_data4], epochs = 5, batch_size = 256)
 
-model.save("Mrs. GREEN APPLE.keras")
+#評価
+loss, ac1, ac2, ac3, ac4 = model.evaluate(train_data, [teach_data1, teach_data2, teach_data3, teach_data4])
+
+print(ac1, ac2, ac3, ac4)
+
+#一層目の重みを取得
+weight = model.get_layer(index = 1).weights[0]
+
+
+#dictionaryの作成
+dictionary = makedictionary(traindata, rawdata)
+
+
+dictionary = getchordvector(weight, dictionary)
+
+
+cosinesimilarity = getcosinesimilarity(dictionary)
+print(cosinesimilarity.loc['Am', 'C'])
+
+cosinesimilarity.to_csv("cosinesimilarity.csv")
+cosinesimilarity.to_json("cosinesimilarity2.json")
+#重み行列からコードのベクトルの取得
+print("Shape of weight:", weight.shape)
+model.save(filename + ".keras")
